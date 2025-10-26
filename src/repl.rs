@@ -1,7 +1,14 @@
 use crate::prompts;
+use regex::Regex;
 use std::io;
 use std::io::Write;
 use thiserror::Error;
+
+const EXPRESSION_PATTERN: &str = r"(?i)^(?:'(?:[^']*)'|-?\d+(?:\.\d+)?|true|false)$";
+
+fn make_expression_regex() -> Regex {
+    Regex::new(EXPRESSION_PATTERN).expect("Error creating regex for expressions")
+}
 
 pub fn run_repl() {
     let mut buffer: String = String::new();
@@ -45,18 +52,23 @@ enum CommandType {
     Delete,
 }
 
-enum Data {
-    Float(f32),
-    Integer(i32),
-    Text(String),
-    Bool(bool),
-}
+// enum Data {
+//     Float(f32),
+//     Integer(i32),
+//     Text(String),
+//     Bool(bool),
+// }
 
 enum TokenType {
     Command(CommandType),
-    Operator,
+    Operator(OperatorType),
     ColumnName(String),
     Expression(String),
+}
+
+enum OperatorType {
+    Equal,
+    Plus,
 }
 
 struct Token {
@@ -73,18 +85,23 @@ impl Token {
     }
 }
 
-fn tokenize_user_input(user_input: &str) {
-    let tokens: Vec<Token> = Vec::new();
+fn tokenize_user_input(user_input: &str) -> Result<Vec<Token>, TokenizingError> {
+    let mut tokens: Vec<Token> = Vec::new();
     let mut word_iter = user_input.split_whitespace().peekable();
+    let expression_regex: Regex = make_expression_regex();
     while let Some(word) = word_iter.next() {
         if let Some(&next) = word_iter.peek() {
-            let some_token = build_token(word, next);
+            let current_token = build_token(word, next, &expression_regex)?;
+            tokens.push(current_token);
         }
     }
+    Ok(tokens)
 }
 
-fn build_token(word: &str, next: &str) -> Result<Token, TokenizingError> {
+fn build_token(word: &str, next: &str, expression_regex: &Regex) -> Result<Token, TokenizingError> {
+    let owned_word: String = word.to_string();
     match word.to_lowercase().as_str() {
+        // Commands
         "create" => generate_multiple_words_token(
             TokenType::Command(CommandType::CreateTable),
             word,
@@ -93,7 +110,7 @@ fn build_token(word: &str, next: &str) -> Result<Token, TokenizingError> {
         ),
         "select" => Ok(Token::new(
             TokenType::Command(CommandType::Select),
-            word.to_string(),
+            owned_word,
         )),
         "insert" => generate_multiple_words_token(
             TokenType::Command(CommandType::InsertInto),
@@ -101,8 +118,29 @@ fn build_token(word: &str, next: &str) -> Result<Token, TokenizingError> {
             next,
             "into",
         ),
-        "update" => Ok(Token::new(TokenType::Command(CommandType::Update), word.to_string())),
-        "delete" => Ok(Token::new(TokenType::Command(CommandType::Delete), word.to_string()))
+        "update" => Ok(Token::new(
+            TokenType::Command(CommandType::Update),
+            owned_word,
+        )),
+        "delete" => Ok(Token::new(
+            TokenType::Command(CommandType::Delete),
+            owned_word,
+        )),
+        // Operators
+        "=" => Ok(Token::new(
+            TokenType::Operator(OperatorType::Equal),
+            owned_word,
+        )),
+        "+" => Ok(Token::new(
+            TokenType::Operator(OperatorType::Equal),
+            owned_word,
+        )),
+        // Expressions and column names
+        &_ => if expression_regex.is_match(word) {
+            Ok(Token::new(TokenType::Expression(owned_word.clone()), owned_word))
+        } else {
+            Ok(Token::new(TokenType::ColumnName(owned_word.clone()), owned_word))
+        },
     }
 }
 
@@ -121,5 +159,45 @@ fn generate_multiple_words_token(
             expected_word_after: expected_word_after.to_string(),
             found_word_after: expected_word_after.to_string(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_patterns() {
+        let re = make_expression_regex();
+        let valid_cases = [
+            "'hello'", "'123abc'", "''", "42", "-15", "3.1415", "-0.5", "true", "False", "TRUE",
+        ];
+
+        for case in valid_cases {
+            assert!(re.is_match(case), "Failed: regex should match `{}`", case);
+        }
+    }
+
+    #[test]
+    fn test_invalid_patterns() {
+        let re = make_expression_regex();
+        let invalid_cases = [
+            "\"hello\"", // double quotes
+            "'unclosed", // missing closing quote
+            "3.14.15",   // invalid number
+            "tru",       // partial boolean
+            "yes",       // not a boolean
+            "2.",        // no digits after dot
+            ".5",        // no digits before dot
+            "falsehood", // longer word than "false"
+        ];
+
+        for case in invalid_cases {
+            assert!(
+                !re.is_match(case),
+                "Failed: regex should NOT match `{}`",
+                case
+            );
+        }
     }
 }

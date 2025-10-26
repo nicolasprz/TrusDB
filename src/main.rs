@@ -1,6 +1,6 @@
 pub mod repl;
-mod prompts;
 
+mod prompts;
 fn main() {
     repl::run_repl();
 }
