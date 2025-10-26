@@ -8,7 +8,7 @@ fn make_expression_regex() -> Regex {
 }
 
 #[derive(Error, Debug)]
-pub enum TokenizingError {
+enum TokenizingError {
     #[error(
         "Unexpected keyword found after '{word_before:?}': expected '{expected_word_after:?}', found '{found_word_after:?}'"
     )]
@@ -20,7 +20,7 @@ pub enum TokenizingError {
 }
 
 #[derive(Debug)]
-enum CommandType {
+pub enum CommandType {
     CreateTable,
     Select,
     InsertInto,
@@ -36,11 +36,11 @@ enum CommandType {
 // }
 
 #[derive(Debug)]
-enum TokenType {
+pub enum TokenType {
     Command(CommandType),
     Operator(OperatorType),
-    ColumnName(String),
-    Expression(String),
+    TargetName,
+    Expression,
 }
 
 #[derive(Debug)]
@@ -51,8 +51,8 @@ enum OperatorType {
 
 #[derive(Debug)]
 pub struct Token {
-    token_type: TokenType,
-    content: String,
+    pub token_type: TokenType,
+    pub content: String,
 }
 
 impl Token {
@@ -126,15 +126,9 @@ fn build_token(
         // Expressions and column names
         &_ => {
             if expression_regex.is_match(word) {
-                Ok(Token::new(
-                    TokenType::Expression(owned_word.clone()),
-                    owned_word,
-                ))
+                Ok(Token::new(TokenType::Expression, owned_word))
             } else {
-                Ok(Token::new(
-                    TokenType::ColumnName(owned_word.clone()),
-                    owned_word,
-                ))
+                Ok(Token::new(TokenType::TargetName, owned_word))
             }
         }
     };
