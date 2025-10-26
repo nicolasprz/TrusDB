@@ -30,6 +30,8 @@ pub fn run_repl() {
         buffer.push('\n');
     }
     println!("Content of buffer:\n{}", buffer);
+    let tokens = tokenize_user_input(&buffer);
+    println!("{tokens:?}");
 }
 
 #[derive(Error, Debug)]
@@ -44,6 +46,7 @@ enum TokenizingError {
     },
 }
 
+#[derive(Debug)]
 enum CommandType {
     CreateTable,
     Select,
@@ -59,6 +62,7 @@ enum CommandType {
 //     Bool(bool),
 // }
 
+#[derive(Debug)]
 enum TokenType {
     Command(CommandType),
     Operator(OperatorType),
@@ -66,11 +70,13 @@ enum TokenType {
     Expression(String),
 }
 
+#[derive(Debug)]
 enum OperatorType {
     Equal,
     Plus,
 }
 
+#[derive(Debug)]
 struct Token {
     token_type: TokenType,
     content: String,
@@ -89,33 +95,42 @@ fn tokenize_user_input(user_input: &str) -> Result<Vec<Token>, TokenizingError> 
     let mut tokens: Vec<Token> = Vec::new();
     let mut word_iter = user_input.split_whitespace().peekable();
     let expression_regex: Regex = make_expression_regex();
+    let mut ignore_next_word = false;
     while let Some(word) = word_iter.next() {
-        if let Some(&next) = word_iter.peek() {
-            let current_token = build_token(word, next, &expression_regex)?;
-            tokens.push(current_token);
+        if ignore_next_word {
+            ignore_next_word = false;
+            continue;
         }
+        let (current_token, ignore_next) = build_token(word, word_iter.peek(), &expression_regex)?;
+        ignore_next_word = ignore_next;
+        tokens.push(current_token);
     }
     Ok(tokens)
 }
 
-fn build_token(word: &str, next: &str, expression_regex: &Regex) -> Result<Token, TokenizingError> {
+// TODO: refactor in a Tokenizer class ?
+fn build_token(
+    word: &str,
+    some_next: Option<&&str>,
+    expression_regex: &Regex,
+) -> Result<(Token, bool), TokenizingError> {
     let owned_word: String = word.to_string();
-    match word.to_lowercase().as_str() {
+    let resulting_token = match word.to_lowercase().as_str() {
         // Commands
-        "create" => generate_multiple_words_token(
+        "create" if some_next.is_some() => generate_multiple_words_token(
             TokenType::Command(CommandType::CreateTable),
             word,
-            next,
+            some_next.unwrap(),
             "table",
         ),
         "select" => Ok(Token::new(
             TokenType::Command(CommandType::Select),
             owned_word,
         )),
-        "insert" => generate_multiple_words_token(
+        "insert" if some_next.is_some() => generate_multiple_words_token(
             TokenType::Command(CommandType::InsertInto),
             word,
-            next,
+            some_next.unwrap(),
             "into",
         ),
         "update" => Ok(Token::new(
@@ -136,11 +151,26 @@ fn build_token(word: &str, next: &str, expression_regex: &Regex) -> Result<Token
             owned_word,
         )),
         // Expressions and column names
-        &_ => if expression_regex.is_match(word) {
-            Ok(Token::new(TokenType::Expression(owned_word.clone()), owned_word))
-        } else {
-            Ok(Token::new(TokenType::ColumnName(owned_word.clone()), owned_word))
-        },
+        &_ => {
+            if expression_regex.is_match(word) {
+                Ok(Token::new(
+                    TokenType::Expression(owned_word.clone()),
+                    owned_word,
+                ))
+            } else {
+                Ok(Token::new(
+                    TokenType::ColumnName(owned_word.clone()),
+                    owned_word,
+                ))
+            }
+        }
+    };
+    let token = resulting_token?;
+    let token_content_list: Vec<&str> = token.content.split_whitespace().collect();
+    if token_content_list.len() > 1 {
+        Ok((token, true))
+    } else {
+        Ok((token, false))
     }
 }
 
@@ -151,7 +181,7 @@ fn generate_multiple_words_token(
     expected_word_after: &str,
 ) -> Result<Token, TokenizingError> {
     if word_after == expected_word_after {
-        let content = format!("{}{}", current_word, word_after);
+        let content = format!("{} {}", current_word, word_after);
         Ok(Token::new(output_token_type, content))
     } else {
         Err(TokenizingError::KeywordNotFound {
