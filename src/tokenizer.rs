@@ -8,7 +8,7 @@ fn make_expression_regex() -> Regex {
 }
 
 #[derive(Error, Debug)]
-enum TokenizingError {
+pub enum TokenizingError {
     #[error(
         "Unexpected keyword found after '{word_before:?}': expected '{expected_word_after:?}', found '{found_word_after:?}'"
     )]

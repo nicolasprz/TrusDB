@@ -1,5 +1,6 @@
+use crate::parser;
 use crate::prompts;
-use crate::tokenizer::*;
+use crate::tokenizer;
 use std::io;
 use std::io::Write;
 
@@ -22,7 +23,11 @@ pub fn run_repl() {
         buffer.push_str(trimmed_input);
         buffer.push('\n');
         println!("Content of buffer:\n{}", buffer);
-        let tokens: Vec<Token> = tokenize_user_input(&buffer).expect("Error tokenizing input");
-        println!("{tokens:?}");
+        let tokens: Vec<tokenizer::Token> =
+            tokenizer::tokenize_user_input(&buffer).expect("Error tokenizing input");
+        println!("{tokens:#?}");
+        let instructions: Vec<parser::Instruction> =
+            parser::parse_tokens(tokens).expect("Error while parsing tokens");
+        println!("{instructions:?}");
     }
 }
