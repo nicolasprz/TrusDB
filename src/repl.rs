@@ -26,8 +26,8 @@ pub fn run_repl() {
         let tokens: Vec<tokenizer::Token> =
             tokenizer::tokenize_user_input(&buffer).expect("Error tokenizing input");
         println!("{tokens:#?}");
-        let instructions: Vec<parser::Instruction> =
+        let instruction: Option<parser::Instruction> =
             parser::parse_tokens(tokens).expect("Error while parsing tokens");
-        println!("{instructions:?}");
+        println!("{instruction:?}");
     }
 }

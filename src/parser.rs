@@ -1,3 +1,4 @@
+use crate::lookahead::LookaheadExt;
 use crate::tokenizer::{CommandType, Token, TokenType};
 use thiserror::Error;
 
@@ -33,9 +34,11 @@ pub enum ParsingError {
     NoDataTypeProvided { column_name: String },
     #[error("Unexpected data type '{found}'")]
     UnexpectedDataTypeProvided { found: String },
+    #[error("Expected '{missing_char}' at the end of statement")]
+    MissingEndOfStatementChar { missing_char: char },
 }
 
-type InstructionResult = Result<Vec<Instruction>, ParsingError>;
+type InstructionResult = Result<Option<Instruction>, ParsingError>;
 
 #[derive(Debug)]
 pub struct Instruction {
@@ -73,18 +76,17 @@ struct Column {
 }
 
 pub fn parse_tokens(tokens: Vec<Token>) -> InstructionResult {
-    let mut instructions: Vec<Instruction> = Vec::new();
     let some_starting_command: Option<&Token> = tokens.first();
     if let Some(starting_command) = some_starting_command {
         if let TokenType::Command(cmd_type) = &starting_command.token_type {
-            instructions = match cmd_type {
+            let instruction = match cmd_type {
                 CommandType::CreateTable => parse_create_table(&tokens, cmd_type)?,
                 CommandType::Select => parse_select(&tokens)?,
                 CommandType::InsertInto => parse_insert_into(&tokens)?,
                 CommandType::Update => parse_update(&tokens)?,
                 CommandType::Delete => parse_delete(&tokens)?,
             };
-            Ok(instructions)
+            Ok(instruction)
         } else {
             Err(ParsingError::FirstTokenNotCommand {
                 found_content: starting_command.content.to_string(),
@@ -92,7 +94,7 @@ pub fn parse_tokens(tokens: Vec<Token>) -> InstructionResult {
         }
     } else {
         // In the case of an empty query, an empty Vec of instructions should be returned
-        Ok(instructions)
+        Ok(None)
     }
 }
 
@@ -100,7 +102,7 @@ fn parse_create_table(tokens: &[Token], cmd_type: &CommandType) -> InstructionRe
     // At this point, the second token should be the name of the table (else raise a ParsingError)
     if tokens.len() <= 1 {
         return Err(ParsingError::TokenNotFound {
-            expected: TokenType::TargetName,
+            expected: TokenType::Expression,
         });
     }
     // After the check above, we can safely make a peekable iterator over tokens, and ignore the
@@ -119,7 +121,7 @@ fn parse_create_table(tokens: &[Token], cmd_type: &CommandType) -> InstructionRe
         let some_open_paren = tokens_iter.peek();
         if some_open_paren.is_none() {
             return Err(ParsingError::TokenNotFound {
-                expected: TokenType::TargetName,
+                expected: TokenType::Expression,
             });
         }
         if !&some_open_paren.unwrap().content.starts_with('(') {
@@ -138,17 +140,38 @@ fn parse_create_table(tokens: &[Token], cmd_type: &CommandType) -> InstructionRe
             .position(|token| token.content.chars().any(|c| [',', ')'].contains(&c)));
         if let Some(end_pos) = some_end_char_position {
             let column_tokens: Vec<&Token> = cloned_iter.take(end_pos).collect();
-            found_columns.push(parse_column(column_tokens))
+            found_columns.push(parse_column(column_tokens)?)
         }
     }
-    Ok(Vec::new())
+    if let Some(last_token) = tokens_iter.last() {
+        if !last_token.content.contains(')') {
+            let expected_closing_paren_position: Option<usize> = last_token
+                .content
+                .char_indices()
+                .find(|&(_, c)| c.is_ascii_alphabetic())
+                .map(|(i, _)| i);
+            return Err(ParsingError::MissingCharInToken {
+                missing_char: ')',
+                char_expected_position: expected_closing_paren_position.unwrap(),
+                found_content: last_token.content.to_string(),
+            });
+        }
+        if !last_token.content.ends_with(';') {
+            return Err(ParsingError::MissingEndOfStatementChar { missing_char: ';' });
+        }
+    }
+    Ok(Some(Instruction {
+        base_command: cmd_type.clone(),
+        target_table: table_name.content.to_string(),
+        columns: found_columns,
+    }))
 }
 
 fn parse_column(column_tokens: Vec<&Token>) -> Result<Column, ParsingError> {
     if column_tokens.len() == 0 {
         return Err(ParsingError::EmptyColumnTokens);
     }
-    let mut column_tokens_iter = column_tokens.into_iter().peekable();
+    let mut column_tokens_iter = column_tokens.into_iter().lookahead();
     let column_name: String = column_tokens_iter
         .next()
         .unwrap()
@@ -157,12 +180,21 @@ fn parse_column(column_tokens: Vec<&Token>) -> Result<Column, ParsingError> {
         .filter(|&c| c == '(')
         .collect();
     let column_type: DataType = match column_tokens_iter.next() {
-        None => Err(ParsingError::NoDataTypeProvided { column_name: column_name.clone() }),
+        None => Err(ParsingError::NoDataTypeProvided {
+            column_name: column_name.clone(),
+        }),
         Some(token) => DataType::from_string(token.content.chars().filter(|&c| c == ',').collect()),
     }?;
-    if let Some(primary_key_token) = column_tokens_iter.peek().peek() {
-        let result: String = column_tokens_iter.take(2).map(|t| t.content).collect::<Vec<_>>().join(" ");
-        // let is_primary_key: bool =
+    // By default, this value is set to false, unless a primary key token is found
+    let mut is_primary_key = false;
+    if column_tokens_iter.peek(2).is_some() {
+        let result: String = column_tokens_iter
+            .take(2)
+            .map(|t| t.content.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+        println!("Primary key content: {result:?}");
+        is_primary_key = result.to_lowercase() == "primary key";
     }
     Ok(Column {
         name: column_name,
@@ -174,20 +206,20 @@ fn parse_column(column_tokens: Vec<&Token>) -> Result<Column, ParsingError> {
 
 fn parse_select(tokens: &[Token]) -> InstructionResult {
     todo!("Not implemented");
-    Ok(Vec::new())
+    Ok(None)
 }
 
 fn parse_insert_into(tokens: &[Token]) -> InstructionResult {
     todo!("Not implemented");
-    Ok(Vec::new())
+    Ok(None)
 }
 
 fn parse_update(tokens: &[Token]) -> InstructionResult {
     todo!("Not implemented");
-    Ok(Vec::new())
+    Ok(None)
 }
 
 fn parse_delete(tokens: &[Token]) -> InstructionResult {
     todo!("Not implemented");
-    Ok(Vec::new())
+    Ok(None)
 }

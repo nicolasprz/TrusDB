@@ -19,7 +19,7 @@ pub enum TokenizingError {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum CommandType {
     CreateTable,
     Select,
@@ -39,8 +39,8 @@ pub enum CommandType {
 pub enum TokenType {
     Command(CommandType),
     Operator(OperatorType),
-    TargetName,
     Expression,
+    Value,
 }
 
 #[derive(Debug)]
@@ -126,9 +126,9 @@ fn build_token(
         // Expressions and column names
         &_ => {
             if expression_regex.is_match(word) {
-                Ok(Token::new(TokenType::Expression, owned_word))
+                Ok(Token::new(TokenType::Value, owned_word))
             } else {
-                Ok(Token::new(TokenType::TargetName, owned_word))
+                Ok(Token::new(TokenType::Expression, owned_word))
             }
         }
     };
