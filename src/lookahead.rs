@@ -17,14 +17,14 @@ impl<I: Iterator> Lookahead<I> {
 
     /// Returns a reference to the n-th element of the original iterator
     pub fn peek(&mut self, n: usize) -> Option<&I::Item> {
-        while self.buf.len() <= n {
+        while self.buf.len() <= n - 1 {
             if let Some(item) = self.iter.next() {
                 self.buf.push_back(item);
             } else {
                 break;
             }
         }
-        self.buf.get(n)
+        self.buf.get(n - 1)
     }
 }
 
