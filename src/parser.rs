@@ -53,6 +53,7 @@ enum DataType {
     Integer,
     Text,
     Bool,
+    Uuid,
 }
 
 impl DataType {
@@ -62,6 +63,7 @@ impl DataType {
             "integer" => Ok(DataType::Integer),
             "text" => Ok(DataType::Text),
             "bool" => Ok(DataType::Bool),
+            "uuid" => Ok(DataType::Uuid),
             &_ => Err(ParsingError::UnexpectedDataTypeProvided { found: data_type }),
         }
     }
@@ -134,13 +136,14 @@ fn parse_create_table(tokens: &[Token], cmd_type: &CommandType) -> InstructionRe
     }
     let mut found_columns: Vec<Column> = Vec::new();
     while tokens_iter.peek().is_some() {
-        let cloned_iter = tokens_iter.clone();
+        let mut cloned_iter = tokens_iter.clone();
         let some_end_char_position: Option<usize> = cloned_iter
             .clone()
             .position(|token| token.content.chars().any(|c| [',', ')'].contains(&c)));
         if let Some(end_pos) = some_end_char_position {
-            let column_tokens: Vec<&Token> = cloned_iter.take(end_pos).collect();
-            found_columns.push(parse_column(column_tokens)?)
+            let column_tokens: Vec<&Token> = cloned_iter.by_ref().take(end_pos + 1).collect();
+            found_columns.push(parse_column(column_tokens)?);
+            tokens_iter = cloned_iter;
         }
     }
     if let Some(last_token) = tokens_iter.last() {
@@ -177,13 +180,13 @@ fn parse_column(column_tokens: Vec<&Token>) -> Result<Column, ParsingError> {
         .unwrap()
         .content
         .chars()
-        .filter(|&c| c == '(')
+        .filter(|&c| c != '(')
         .collect();
     let column_type: DataType = match column_tokens_iter.next() {
         None => Err(ParsingError::NoDataTypeProvided {
             column_name: column_name.clone(),
         }),
-        Some(token) => DataType::from_string(token.content.chars().filter(|&c| c == ',').collect()),
+        Some(token) => DataType::from_string(token.content.chars().filter(|c| ![',', ')', ';'].contains(c)).collect()),
     }?;
     // By default, this value is set to false, unless a primary key token is found
     let mut is_primary_key = false;

@@ -28,6 +28,6 @@ pub fn run_repl() {
         println!("{tokens:#?}");
         let instruction: Option<parser::Instruction> =
             parser::parse_tokens(tokens).expect("Error while parsing tokens");
-        println!("{instruction:?}");
+        println!("{instruction:#?}");
     }
 }
