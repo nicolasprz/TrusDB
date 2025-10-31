@@ -77,6 +77,8 @@ struct Column {
     is_primary_key: bool,
 }
 
+const CHARACTERS_TO_CLEAN: [char; 3] = [',', ')', ';'];
+
 pub fn parse_tokens(tokens: Vec<Token>) -> InstructionResult {
     let some_starting_command: Option<&Token> = tokens.first();
     if let Some(starting_command) = some_starting_command {
@@ -186,10 +188,17 @@ fn parse_column(column_tokens: Vec<&Token>) -> Result<Column, ParsingError> {
         None => Err(ParsingError::NoDataTypeProvided {
             column_name: column_name.clone(),
         }),
-        Some(token) => DataType::from_string(token.content.chars().filter(|c| ![',', ')', ';'].contains(c)).collect()),
+        Some(token) => DataType::from_string(
+            token
+                .content
+                .chars()
+                .filter(|c| ![',', ')', ';'].contains(c))
+                .collect(),
+        ),
     }?;
     // By default, this value is set to false, unless a primary key token is found
     let mut is_primary_key = false;
+    println!("{:?}", column_tokens_iter.peek(2));
     if column_tokens_iter.peek(2).is_some() {
         let result: String = column_tokens_iter
             .take(2)
@@ -197,7 +206,12 @@ fn parse_column(column_tokens: Vec<&Token>) -> Result<Column, ParsingError> {
             .collect::<Vec<_>>()
             .join(" ");
         println!("Primary key content: {result:?}");
-        is_primary_key = result.to_lowercase() == "primary key";
+        let clean_result: String = result
+            .to_lowercase()
+            .chars()
+            .filter(|c| !CHARACTERS_TO_CLEAN.contains(c))
+            .collect();
+        is_primary_key = clean_result == "primary key";
     }
     Ok(Column {
         name: column_name,
