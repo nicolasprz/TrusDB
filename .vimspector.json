@@ -1,0 +1,16 @@
+{
+  "configurations": {
+    "run-cargo-debug": {
+      "adapter": "CodeLLDB",
+      "configuration": {
+        "request": "launch",
+        "program": "${workspaceRoot}/target/debug/TrusDB",
+        "args": [],
+        "cwd": "${workspaceRoot}",
+        "env": {},
+        "stopOnEntry": false
+      },
+      "preLaunchTask": "cargo build"
+    }
+  }
+}
