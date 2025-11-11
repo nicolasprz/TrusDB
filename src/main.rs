@@ -1,9 +1,8 @@
 pub mod repl;
-
 mod prompts;
-mod tokenizer;
-mod parser;
-mod lookahead;
+
+mod sql_compilator;
+mod virtual_machine;
 
 fn main() {
     repl::run_repl();

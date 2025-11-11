@@ -35,7 +35,7 @@ pub enum CommandType {
 //     Bool(bool),
 // }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TokenType {
     Command(CommandType),
     Operator(OperatorType),
@@ -43,13 +43,13 @@ pub enum TokenType {
     Value,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum OperatorType {
     Equal,
     Plus,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
     pub content: String,

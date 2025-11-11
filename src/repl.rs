@@ -1,6 +1,6 @@
-use crate::parser;
 use crate::prompts;
-use crate::tokenizer;
+use crate::sql_compilator::parser;
+use crate::sql_compilator::tokenizer;
 use std::io;
 use std::io::Write;
 
@@ -23,11 +23,17 @@ pub fn run_repl() {
         buffer.push_str(trimmed_input);
         buffer.push('\n');
         println!("Content of buffer:\n{}", buffer);
-        let tokens: Vec<tokenizer::Token> =
-            tokenizer::tokenize_user_input(&buffer).expect("Error tokenizing input");
-        println!("{tokens:#?}");
-        let instruction: Option<parser::Instruction> =
-            parser::parse_tokens(tokens).expect("Error while parsing tokens");
-        println!("{instruction:#?}");
+        process_user_request(&buffer);
     }
+}
+
+fn process_user_request(buffer: &str) {
+    let tokens: Vec<tokenizer::Token> =
+        tokenizer::tokenize_user_input(buffer).expect("Error tokenizing input");
+    println!("{tokens:#?}");
+
+    let parser: parser::Parser = parser::Parser::new(&tokens);
+    let instruction: Option<parser::Instruction> =
+        parser.parse_tokens().expect("Error while parsing tokens");
+    println!("{instruction:#?}");
 }
