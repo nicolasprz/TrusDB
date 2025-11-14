@@ -1,8 +1,12 @@
 use crate::prompts;
 use crate::sql_compilator::parser;
 use crate::sql_compilator::tokenizer;
+use crate::virtual_machine::instruction_processor;
 use std::io;
 use std::io::Write;
+use std::path::PathBuf;
+
+const CONFIG_PATH: &str = "etc/config.toml";
 
 pub fn run_repl() {
     let mut buffer: String = String::new();
@@ -33,7 +37,18 @@ fn process_user_request(buffer: &str) {
     println!("{tokens:#?}");
 
     let parser: parser::Parser = parser::Parser::new(&tokens);
-    let instruction: Option<parser::Instruction> =
+    let some_instruction: Option<parser::Instruction> =
         parser.parse_tokens().expect("Error while parsing tokens");
-    println!("{instruction:#?}");
+    println!("{some_instruction:#?}");
+
+    if let Some(instruction) = some_instruction {
+        let query_processor = instruction_processor::InstructionProcessor::new(
+            instruction,
+            &PathBuf::from(CONFIG_PATH),
+        ).expect("Could not create query processor");
+        query_processor.process_instruction();
+    }
+    else {
+        log::info!("Did not find any instruction to process");
+    }
 }

@@ -1,13 +1,29 @@
+use crate::config::Config;
+use crate::config::get_project_root;
+use std::path::Path;
+use std::path::PathBuf;
+
 use crate::sql_compilator::parser;
 use crate::sql_compilator::tokenizer;
 
-struct InstructionProcessor {
+pub struct InstructionProcessor {
     instruction: parser::Instruction,
+    config: Config,
+    tables_dir: PathBuf,
 }
 
 impl InstructionProcessor {
-    pub fn new(&self, instruction: parser::Instruction) -> Self {
-        InstructionProcessor { instruction }
+    pub fn new(
+        instruction: parser::Instruction,
+        config_path: &Path,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let config = Config::load(config_path)?;
+        let tables_dir = get_project_root().join(&config.database.url);
+        Ok(InstructionProcessor {
+            instruction,
+            config,
+            tables_dir,
+        })
     }
 
     pub fn process_instruction(&self) {
@@ -17,5 +33,8 @@ impl InstructionProcessor {
         }
     }
 
-    fn create_table_file(&self) {}
+    fn create_table_file(&self) {
+        log::debug!("{:#?}", self.instruction);
+        todo!("Not implemented");
+    }
 }
