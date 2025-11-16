@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::config::get_project_root;
+use crate::utils::file_handler;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -10,12 +11,14 @@ pub struct InstructionProcessor {
     instruction: parser::Instruction,
     config: Config,
     tables_dir: PathBuf,
+    database: &file_handler::Database,
 }
 
 impl InstructionProcessor {
     pub fn new(
         instruction: parser::Instruction,
         config_path: &Path,
+        database: &file_handler::Database,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let config = Config::load(config_path)?;
         let tables_dir = get_project_root().join(&config.database.url);
@@ -23,6 +26,7 @@ impl InstructionProcessor {
             instruction,
             config,
             tables_dir,
+            database,
         })
     }
 

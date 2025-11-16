@@ -1,5 +1,6 @@
 use crate::sql_compilator::lookahead::LookaheadExt;
 use crate::sql_compilator::tokenizer::{CommandType, Token, TokenType};
+use crate::utils::file_handler::{Column, DataType};
 use thiserror::Error;
 
 // TODO list (general for this script):
@@ -45,36 +46,6 @@ pub struct Instruction {
     pub base_command: CommandType,
     pub target_table: String,
     pub columns: Vec<Column>,
-}
-
-#[derive(Debug)]
-enum DataType {
-    Float,
-    Integer,
-    Text,
-    Bool,
-    Uuid,
-}
-
-impl DataType {
-    fn from_string(data_type: String) -> Result<DataType, ParsingError> {
-        match data_type.to_lowercase().as_str() {
-            "float" => Ok(DataType::Float),
-            "integer" => Ok(DataType::Integer),
-            "text" => Ok(DataType::Text),
-            "bool" => Ok(DataType::Bool),
-            "uuid" => Ok(DataType::Uuid),
-            &_ => Err(ParsingError::UnexpectedDataTypeProvided { found: data_type }),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Column { 
-    name: String,
-    data_type: DataType,
-    values: Vec<DataType>,
-    is_primary_key: bool,
 }
 
 const CHARACTERS_TO_CLEAN: [char; 3] = [',', ')', ';'];
@@ -207,14 +178,14 @@ impl<'token> Parser<'token> {
         }?;
         // By default, this value is set to false, unless a primary key token is found
         let mut is_primary_key = false;
-        println!("{:?}", column_tokens_iter.peek(2));
+        log::debug!("{:?}", column_tokens_iter.peek(2));
         if column_tokens_iter.peek(2).is_some() {
             let result: String = column_tokens_iter
                 .take(2)
                 .map(|t| t.content.as_str())
                 .collect::<Vec<_>>()
                 .join(" ");
-            println!("Primary key content: {result:?}");
+            log::debug!("Primary key content: {result:?}");
             let clean_result: String = result
                 .to_lowercase()
                 .chars()
@@ -231,7 +202,7 @@ impl<'token> Parser<'token> {
     }
 
     fn parse_select(&self) -> InstructionResult {
-        println!("{:?}", self.tokens);
+        log::debug!("{:?}", self.tokens);
         todo!("Not implemented");
         Ok(None)
     }

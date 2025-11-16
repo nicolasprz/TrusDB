@@ -28,13 +28,6 @@ pub enum CommandType {
     Delete,
 }
 
-// enum Data {
-//     Float(f32),
-//     Integer(i32),
-//     Text(String),
-//     Bool(bool),
-// }
-
 #[derive(Debug, Clone)]
 pub enum TokenType {
     Command(CommandType),

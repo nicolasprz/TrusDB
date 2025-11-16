@@ -1,23 +1,23 @@
 use crate::prompts;
 use crate::sql_compilator::parser;
 use crate::sql_compilator::tokenizer;
+use crate::utils::file_handler;
 use crate::virtual_machine::instruction_processor;
-use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 
 const CONFIG_PATH: &str = "etc/config.toml";
 
-pub fn run_repl() {
+pub fn run_repl(database: file_handler::Database) {
     let mut buffer: String = String::new();
     prompts::print_welcome_prompt();
     loop {
         print!("> ");
-        io::stdout()
+        std::io::stdout()
             .flush()
             .expect("Error flushing standard output");
         let mut input: String = String::new();
-        io::stdin()
+        std::io::stdin()
             .read_line(&mut input)
             .expect("Error read user input");
         let trimmed_input = input.trim();
@@ -26,29 +26,29 @@ pub fn run_repl() {
         }
         buffer.push_str(trimmed_input);
         buffer.push('\n');
-        println!("Content of buffer:\n{}", buffer);
-        process_user_request(&buffer);
+        log::debug!("Content of buffer:\n{}", buffer);
+        process_user_request(&buffer, &database);
     }
 }
 
-fn process_user_request(buffer: &str) {
+fn process_user_request(buffer: &str, database: &file_handler::Database) {
     let tokens: Vec<tokenizer::Token> =
         tokenizer::tokenize_user_input(buffer).expect("Error tokenizing input");
-    println!("{tokens:#?}");
+    log::debug!("{tokens:#?}");
 
     let parser: parser::Parser = parser::Parser::new(&tokens);
     let some_instruction: Option<parser::Instruction> =
         parser.parse_tokens().expect("Error while parsing tokens");
-    println!("{some_instruction:#?}");
+    log::debug!("{some_instruction:#?}");
 
     if let Some(instruction) = some_instruction {
         let query_processor = instruction_processor::InstructionProcessor::new(
             instruction,
             &PathBuf::from(CONFIG_PATH),
-        ).expect("Could not create query processor");
+        )
+        .expect("Could not create query processor");
         query_processor.process_instruction();
-    }
-    else {
+    } else {
         log::info!("Did not find any instruction to process");
     }
 }
