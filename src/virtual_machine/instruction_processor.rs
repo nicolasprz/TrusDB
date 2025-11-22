@@ -7,18 +7,18 @@ use std::path::PathBuf;
 use crate::sql_compilator::parser;
 use crate::sql_compilator::tokenizer;
 
-pub struct InstructionProcessor {
+pub struct InstructionProcessor<'db> {
     instruction: parser::Instruction,
     config: Config,
     tables_dir: PathBuf,
-    database: &file_handler::Database,
+    database: &'db mut file_handler::Database,
 }
 
-impl InstructionProcessor {
+impl<'db> InstructionProcessor<'db> {
     pub fn new(
         instruction: parser::Instruction,
         config_path: &Path,
-        database: &file_handler::Database,
+        database: &'db mut file_handler::Database,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let config = Config::load(config_path)?;
         let tables_dir = get_project_root().join(&config.database.url);
@@ -30,15 +30,17 @@ impl InstructionProcessor {
         })
     }
 
-    pub fn process_instruction(&self) {
+    pub fn process_instruction(&mut self) -> std::io::Result<()>{
         match self.instruction.base_command {
             tokenizer::CommandType::CreateTable => self.create_table_file(),
             _ => todo!(),
         }
     }
 
-    fn create_table_file(&self) {
+    fn create_table_file(&mut self) -> std::io::Result<()> {
         log::debug!("{:#?}", self.instruction);
-        todo!("Not implemented");
+        let owned_columns = self.instruction.columns.clone();
+        self.database
+            .create_table(&self.instruction.target_table, owned_columns)
     }
 }

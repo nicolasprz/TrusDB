@@ -29,7 +29,7 @@ struct TableMetadata {
     page_size: usize,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Column {
     pub name: String,
     pub data_type: DataType,
@@ -38,7 +38,7 @@ pub struct Column {
     // TODO: nullable: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum DataType {
     Float,
     Integer,
@@ -89,7 +89,7 @@ impl Database {
         })
     }
 
-    fn create_table(&mut self, name: &str, columns: Vec<Column>) -> io::Result<()> {
+    pub fn create_table(&mut self, name: &str, columns: Vec<Column>) -> io::Result<()> {
         let table_meta = TableMetadata {
             name: name.to_string(),
             columns,
